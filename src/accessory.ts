@@ -43,10 +43,10 @@ let hap: HAP;
  */
 export = (api: API) => {
   hap = api.hap;
-  api.registerAccessory("TestWindowBlinds", ExampleWindowBlind);
+  api.registerAccessory("TestWindowBlinds", TestWindowCovering);
 };
 
-class ExampleWindowBlind implements AccessoryPlugin {
+class TestWindowCovering implements AccessoryPlugin {
 
   private readonly log: Logging;
   private readonly name: string;
@@ -57,29 +57,29 @@ class ExampleWindowBlind implements AccessoryPlugin {
   protected targetPosition = 0;
   // end new model
 
-  private readonly windowBlindService: Service;
+  private readonly windowCoveringService: Service;
   private readonly informationService: Service;
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
     this.log = log;
     this.name = config.name;
 
-    this.windowBlindService = new hap.Service.WindowCovering(this.name);
-    this.windowBlindService.getCharacteristic(hap.Characteristic.HoldPosition)
+    this.windowCoveringService = new hap.Service.WindowCovering(this.name);
+    this.windowCoveringService.getCharacteristic(hap.Characteristic.HoldPosition)
       .on(CharacteristicEventTypes.SET, (callback: CharacteristicSetCallback) => {
         log.info("HOLDPOSITION was SET");
       })
-    this.windowBlindService.getCharacteristic(hap.Characteristic.CurrentPosition)
+    this.windowCoveringService.getCharacteristic(hap.Characteristic.CurrentPosition)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
         log.info("CurrentPosition of the blind was returned:", this.currentPosition);
         callback(undefined, this.currentPosition);
       })
-    this.windowBlindService.getCharacteristic(hap.Characteristic.PositionState)
+    this.windowCoveringService.getCharacteristic(hap.Characteristic.PositionState)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
         log.info("PositionState of the blind was returned:" , this.positionState);
         callback(undefined, this.positionState);
       });
-    this.windowBlindService.getCharacteristic(hap.Characteristic.TargetPosition)
+    this.windowCoveringService.getCharacteristic(hap.Characteristic.TargetPosition)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
         log.info("TargetPosition of the blind was returned: ", this.targetPosition);
         callback(undefined, this.targetPosition);
@@ -99,12 +99,12 @@ class ExampleWindowBlind implements AccessoryPlugin {
             this.positionState = Characteristic.PositionState.INCREASING;
           }
         }
-        this.windowBlindService.getCharacteristic(Characteristic.PositionState).updateValue(this.positionState);
+        this.windowCoveringService.getCharacteristic(Characteristic.PositionState).updateValue(this.positionState);
         
         setTimeout(() => {
           this.currentPosition = this.targetPosition;
-          this.windowBlindService.getCharacteristic(Characteristic.CurrentPosition).updateValue(this.currentPosition);
-          this.windowBlindService.getCharacteristic(Characteristic.PositionState).updateValue(Characteristic.PositionState.STOPPED);
+          this.windowCoveringService.getCharacteristic(Characteristic.CurrentPosition).updateValue(this.currentPosition);
+          this.windowCoveringService.getCharacteristic(Characteristic.PositionState).updateValue(Characteristic.PositionState.STOPPED);
           log.info("window covering moved and now has the currentposition of ", this.currentPosition);
         }, 5000)
         callback();
@@ -132,7 +132,7 @@ class ExampleWindowBlind implements AccessoryPlugin {
   getServices(): Service[] {
     return [
       this.informationService,
-      this.windowBlindService,
+      this.windowCoveringService,
     ];
   }
 
