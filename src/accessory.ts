@@ -2,6 +2,7 @@ import {
   AccessoryConfig,
   AccessoryPlugin,
   API,
+  Characteristic,
   CharacteristicEventTypes,
   CharacteristicGetCallback,
   CharacteristicSetCallback,
@@ -10,6 +11,8 @@ import {
   Logging,
   Service
 } from "homebridge";
+import { hasUncaughtExceptionCaptureCallback } from "process";
+import { callbackify } from "util";
 
 /*
  * IMPORTANT NOTICE
@@ -40,39 +43,78 @@ let hap: HAP;
  */
 export = (api: API) => {
   hap = api.hap;
-  api.registerAccessory("ExampleSwitch", ExampleSwitch);
+  api.registerAccessory("TestWindowBlinds", ExampleWindowBlind);
 };
 
-class ExampleSwitch implements AccessoryPlugin {
+class ExampleWindowBlind implements AccessoryPlugin {
 
   private readonly log: Logging;
   private readonly name: string;
-  private switchOn = false;
 
-  private readonly switchService: Service;
+  // new model
+  protected positionState = 0;
+  protected currentPosition = 0;
+  protected targetPosition = 0;
+  // end new model
+
+  private readonly windowBlindService: Service;
   private readonly informationService: Service;
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
     this.log = log;
     this.name = config.name;
 
-    this.switchService = new hap.Service.Switch(this.name);
-    this.switchService.getCharacteristic(hap.Characteristic.On)
+    this.windowBlindService = new hap.Service.WindowCovering(this.name);
+    this.windowBlindService.getCharacteristic(hap.Characteristic.HoldPosition)
+      .on(CharacteristicEventTypes.SET, (callback: CharacteristicSetCallback) => {
+        log.info("HOLDPOSITION was SET");
+      })
+    this.windowBlindService.getCharacteristic(hap.Characteristic.CurrentPosition)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        log.info("Current state of the switch was returned: " + (this.switchOn? "ON": "OFF"));
-        callback(undefined, this.switchOn);
+        log.info("CurrentPosition of the blind was returned:", this.currentPosition);
+        callback(undefined, this.currentPosition);
+      })
+    this.windowBlindService.getCharacteristic(hap.Characteristic.PositionState)
+      .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+        log.info("PositionState of the blind was returned:" , this.positionState);
+        callback(undefined, this.positionState);
+      });
+    this.windowBlindService.getCharacteristic(hap.Characteristic.TargetPosition)
+      .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+        log.info("TargetPosition of the blind was returned: ", this.targetPosition);
+        callback(undefined, this.targetPosition);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        this.switchOn = value as boolean;
-        log.info("Switch state was set to: " + (this.switchOn? "ON": "OFF"));
+        this.targetPosition = value as number;
+        log.info("Targetposition state was set to:", this.targetPosition);
+        
+        if (this.targetPosition === this.currentPosition) {
+          this.positionState = Characteristic.PositionState.STOPPED;
+        }
+        else {
+          if (this.targetPosition > this.currentPosition){
+            this.positionState = Characteristic.PositionState.DECREASING;
+          }
+          else {
+            this.positionState = Characteristic.PositionState.INCREASING;
+          }
+        }
+        this.windowBlindService.getCharacteristic(Characteristic.PositionState).updateValue(this.positionState);
+        
+        setTimeout(() => {
+          this.currentPosition = this.targetPosition;
+          this.windowBlindService.getCharacteristic(Characteristic.CurrentPosition).updateValue(this.currentPosition);
+          this.windowBlindService.getCharacteristic(Characteristic.PositionState).updateValue(Characteristic.PositionState.STOPPED);
+          log.info("window covering moved and now has the currentposition of ", this.currentPosition);
+        }, 5000)
         callback();
       });
 
     this.informationService = new hap.Service.AccessoryInformation()
-      .setCharacteristic(hap.Characteristic.Manufacturer, "Custom Manufacturer")
-      .setCharacteristic(hap.Characteristic.Model, "Custom Model");
+      .setCharacteristic(hap.Characteristic.Manufacturer, "Test Manufacturer")
+      .setCharacteristic(hap.Characteristic.Model, "Test Model");
 
-    log.info("Switch finished initializing!");
+    log.info("WindowBlinds finished initializing!");
   }
 
   /*
@@ -90,7 +132,7 @@ class ExampleSwitch implements AccessoryPlugin {
   getServices(): Service[] {
     return [
       this.informationService,
-      this.switchService,
+      this.windowBlindService,
     ];
   }
 
